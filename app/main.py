@@ -15,6 +15,9 @@ from app.pehe_scraper import scrape_all_pehe
 from app.cardev_scraper import scrape_all_cardev
 from app.ela_scraper import scrape_all_ela, scrape_ela_legacy
 from app.arts_scraper import scrape_all_arts
+from app.sustour_scraper import scrape_all_sustour
+from app.cs_scraper import scrape_all_cs
+from app.ict_scraper import scrape_all_ict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,6 +71,9 @@ HTML_PAGE = """<!DOCTYPE html>
         .btn-physed { background: #16a085; }
         .btn-arts { background: #c0392b; }
         .btn-cardev { background: #e67e22; }
+        .btn-sustour { background: #1abc9c; }
+        .btn-cs { background: #3498db; }
+        .btn-ict { background: #9b59b6; }
         .btn-all { background: #2c3e50; }
         #log {
             background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 6px;
@@ -104,6 +110,11 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-physed" onclick="startScrape('physed')" id="btn-physed">Scrape Phys Ed / Health Ed</button>
                 <button class="btn-arts" onclick="startScrape('arts')" id="btn-arts">Scrape Arts Education (K-8, per grade)</button>
             </div>
+            <div class="btn-row">
+                <button class="btn-sustour" onclick="startScrape('sustour')" id="btn-sustour">Scrape Sustainable Tourism (11-12)</button>
+                <button class="btn-cs" onclick="startScrape('cs')" id="btn-cs">Scrape Computer Science (10-12)</button>
+                <button class="btn-ict" onclick="startScrape('ict')" id="btn-ict">Scrape ICT Senior Years (15 courses)</button>
+            </div>
         </div>
 
         <div class="card">
@@ -120,7 +131,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let pollInterval = null;
-        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts'];
+        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict'];
         const btnOrigText = {};
 
         function disableAll() {
@@ -135,7 +146,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const btn = document.getElementById(id);
                 if (btn && btnOrigText[id]) btn.textContent = btnOrigText[id];
                 // Only enable buttons that are implemented
-                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts'].includes(id) && btn) btn.disabled = false;
+                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict'].includes(id) && btn) btn.disabled = false;
             });
         }
 
@@ -245,6 +256,9 @@ async def start_scrape(subject: str):
         "ela": _run_ela_scrape,
         "ela_legacy": _run_ela_legacy_scrape,
         "arts": _run_arts_scrape,
+        "sustour": _run_sustour_scrape,
+        "cs": _run_cs_scrape,
+        "ict": _run_ict_scrape,
     }
 
     func = scrape_funcs.get(subject)
@@ -351,6 +365,42 @@ def _run_cardev_scrape():
         log_progress("\nScrape complete!")
     except Exception as e:
         logger.exception("Career Dev scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_sustour_scrape():
+    try:
+        results = scrape_all_sustour(OUTPUT_DIR, progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Sustainable Tourism scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_cs_scrape():
+    try:
+        results = scrape_all_cs(OUTPUT_DIR, progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Computer Science scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_ict_scrape():
+    try:
+        results = scrape_all_ict(OUTPUT_DIR, progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("ICT scrape failed")
         log_progress(f"\nFATAL ERROR: {e}")
     finally:
         scrape_state["is_running"] = False
