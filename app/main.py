@@ -19,6 +19,7 @@ from app.sustour_scraper import scrape_all_sustour
 from app.cs_scraper import scrape_all_cs
 from app.ict_scraper import scrape_all_ict
 from app.teched_scraper import scrape_all_teched
+from app.arts912_scraper import scrape_all_arts912
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -117,6 +118,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-cs" onclick="startScrape('cs')" id="btn-cs">Scrape Computer Science (10-12)</button>
                 <button class="btn-ict" onclick="startScrape('ict')" id="btn-ict">Scrape ICT Senior Years (15 courses)</button>
                 <button class="btn-teched" onclick="startScrape('teched')" id="btn-teched">Scrape Tech Ed ACE (9-12)</button>
+                <button class="btn-arts" onclick="startScrape('arts912')" id="btn-arts912" style="background:#922b21">Scrape Arts Education (9-12)</button>
             </div>
         </div>
 
@@ -134,7 +136,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let pollInterval = null;
-        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched'];
+        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912'];
         const btnOrigText = {};
 
         function disableAll() {
@@ -149,7 +151,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const btn = document.getElementById(id);
                 if (btn && btnOrigText[id]) btn.textContent = btnOrigText[id];
                 // Only enable buttons that are implemented
-                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched'].includes(id) && btn) btn.disabled = false;
+                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912'].includes(id) && btn) btn.disabled = false;
             });
         }
 
@@ -263,6 +265,7 @@ async def start_scrape(subject: str):
         "cs": _run_cs_scrape,
         "ict": _run_ict_scrape,
         "teched": _run_teched_scrape,
+        "arts912": _run_arts912_scrape,
     }
 
     func = scrape_funcs.get(subject)
@@ -424,6 +427,18 @@ def _run_teched_scrape():
         log_progress("\nScrape complete!")
     except Exception as e:
         logger.exception("Tech Ed scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_arts912_scrape():
+    try:
+        results = scrape_all_arts912(_subject_dir("ArtsEducation_9-12"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Arts 9-12 scrape failed")
         log_progress(f"\nFATAL ERROR: {e}")
     finally:
         scrape_state["is_running"] = False
