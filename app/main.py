@@ -18,6 +18,7 @@ from app.arts_scraper import scrape_all_arts
 from app.sustour_scraper import scrape_all_sustour
 from app.cs_scraper import scrape_all_cs
 from app.ict_scraper import scrape_all_ict
+from app.teched_scraper import scrape_all_teched
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ HTML_PAGE = """<!DOCTYPE html>
         .btn-sustour { background: #1abc9c; }
         .btn-cs { background: #3498db; }
         .btn-ict { background: #9b59b6; }
+        .btn-teched { background: #e74c3c; }
         .btn-all { background: #2c3e50; }
         #log {
             background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 6px;
@@ -114,6 +116,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-sustour" onclick="startScrape('sustour')" id="btn-sustour">Scrape Sustainable Tourism (11-12)</button>
                 <button class="btn-cs" onclick="startScrape('cs')" id="btn-cs">Scrape Computer Science (10-12)</button>
                 <button class="btn-ict" onclick="startScrape('ict')" id="btn-ict">Scrape ICT Senior Years (15 courses)</button>
+                <button class="btn-teched" onclick="startScrape('teched')" id="btn-teched">Scrape Tech Ed ACE (9-12)</button>
             </div>
         </div>
 
@@ -131,7 +134,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let pollInterval = null;
-        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict'];
+        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched'];
         const btnOrigText = {};
 
         function disableAll() {
@@ -146,7 +149,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const btn = document.getElementById(id);
                 if (btn && btnOrigText[id]) btn.textContent = btnOrigText[id];
                 // Only enable buttons that are implemented
-                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict'].includes(id) && btn) btn.disabled = false;
+                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched'].includes(id) && btn) btn.disabled = false;
             });
         }
 
@@ -259,6 +262,7 @@ async def start_scrape(subject: str):
         "sustour": _run_sustour_scrape,
         "cs": _run_cs_scrape,
         "ict": _run_ict_scrape,
+        "teched": _run_teched_scrape,
     }
 
     func = scrape_funcs.get(subject)
@@ -274,9 +278,16 @@ async def start_scrape(subject: str):
     return {"status": "started", "subject": subject}
 
 
+def _subject_dir(name: str) -> Path:
+    """Create and return a per-subject output directory."""
+    d = OUTPUT_DIR / name
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def _run_science_scrape():
     try:
-        results = scrape_all_science(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_science(_subject_dir("Science"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -288,7 +299,7 @@ def _run_science_scrape():
 
 def _run_socstud_scrape():
     try:
-        results = scrape_all_socstud(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_socstud(_subject_dir("SocialStudies"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -300,7 +311,7 @@ def _run_socstud_scrape():
 
 def _run_math_scrape():
     try:
-        results = scrape_all_math(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_math(_subject_dir("Mathematics"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -312,7 +323,7 @@ def _run_math_scrape():
 
 def _run_pehe_scrape():
     try:
-        results = scrape_all_pehe(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_pehe(_subject_dir("PhysEdHealthEd"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -324,7 +335,7 @@ def _run_pehe_scrape():
 
 def _run_arts_scrape():
     try:
-        results = scrape_all_arts(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_arts(_subject_dir("ArtsEducation"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -336,7 +347,7 @@ def _run_arts_scrape():
 
 def _run_ela_scrape():
     try:
-        results = scrape_all_ela(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_ela(_subject_dir("ELA"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -348,7 +359,7 @@ def _run_ela_scrape():
 
 def _run_ela_legacy_scrape():
     try:
-        results = scrape_ela_legacy(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_ela_legacy(_subject_dir("ELA_Legacy"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -360,7 +371,7 @@ def _run_ela_legacy_scrape():
 
 def _run_cardev_scrape():
     try:
-        results = scrape_all_cardev(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_cardev(_subject_dir("CareerDevelopment"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -372,7 +383,7 @@ def _run_cardev_scrape():
 
 def _run_sustour_scrape():
     try:
-        results = scrape_all_sustour(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_sustour(_subject_dir("SustainableTourism"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -384,7 +395,7 @@ def _run_sustour_scrape():
 
 def _run_cs_scrape():
     try:
-        results = scrape_all_cs(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_cs(_subject_dir("ComputerScience"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -396,11 +407,23 @@ def _run_cs_scrape():
 
 def _run_ict_scrape():
     try:
-        results = scrape_all_ict(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_ict(_subject_dir("ICT"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
         logger.exception("ICT scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_teched_scrape():
+    try:
+        results = scrape_all_teched(_subject_dir("TechEdACE"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Tech Ed scrape failed")
         log_progress(f"\nFATAL ERROR: {e}")
     finally:
         scrape_state["is_running"] = False
@@ -419,7 +442,7 @@ async def get_status():
 @app.get("/api/results")
 async def get_results():
     files = []
-    for filepath in sorted(OUTPUT_DIR.glob("*.json")):
+    for filepath in sorted(OUTPUT_DIR.rglob("*.json")):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -430,15 +453,17 @@ async def get_results():
                 len(c.get("specific_learning_outcomes", []))
                 for c in clusters
             )
+            rel_path = filepath.relative_to(OUTPUT_DIR)
             files.append({
-                "filename": filepath.name,
+                "filename": str(rel_path),
                 "grade": grade,
                 "clusters": len(clusters),
                 "slos": total_slos,
             })
         except Exception:
+            rel_path = filepath.relative_to(OUTPUT_DIR)
             files.append({
-                "filename": filepath.name,
+                "filename": str(rel_path),
                 "grade": "?",
                 "clusters": 0,
                 "slos": 0,
