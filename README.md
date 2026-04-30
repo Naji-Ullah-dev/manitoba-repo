@@ -11,7 +11,8 @@ Scrapes curriculum data from Manitoba's legacy education site (`edu.gov.mb.ca/k1
 | Mathematics | K-8 | PDF (K-8 framework) | ~190 outcomes |
 | Physical Education/Health Education | K-10 | HTML grade pages | ~810 outcomes |
 | Career Development | 9-12 | PDF (per-grade two-column) | ~240 outcomes |
-| English Language Arts | S1-S4 (Gr 9-12) | PDF (per-GLO and full docs) | ~420 outcomes |
+| English Language Arts (New 2025) | K-12 | PDF (per-grade, Draft Aug 2025) | ~620 outcomes |
+| English Language Arts (Legacy) | S1-S4 (Gr 9-12) | PDF (per-GLO and full docs) | ~420 outcomes |
 | Arts Education - Dance | K-8 (per grade) | PDF (K-8 framework) | ~100 per discipline |
 | Arts Education - Drama | K-8 (per grade) | PDF (K-8 framework) | ~100 per discipline |
 | Arts Education - Music | K-8 (per grade) | PDF (K-8 framework) | ~130 per discipline |
@@ -19,7 +20,7 @@ Scrapes curriculum data from Manitoba's legacy education site (`edu.gov.mb.ca/k1
 
 ### Not Scrapable
 
-- **ELA K-8**: Full outcome documents are copyright-restricted and not available online. Only the 2020 Curriculum Framework (high-level, no SLO codes) is published.
+- **ELA K-8 (Legacy)**: The old legacy K-8 ELA outcomes are copyright-restricted. However, the new Draft August 2025 framework provides per-grade K-12 PDFs with full SLO codes.
 - **Indigenous Education**: 468-page narrative format, no coded SLOs — uses Essential Questions instead.
 - **Math/Social Studies Senior Years**: Redirected to the new Framework for Learning site.
 - **Technology Education, ICT, Diversity Ed**: Implementation guides/resources, no structured outcomes.
@@ -80,6 +81,6 @@ docker run -p 8000:8000 mb-scraper
 - `app/math_scraper.py` — Mathematics K-8 (PDF parsing)
 - `app/pehe_scraper.py` — Physical Education / Health Education K-10 (HTML parsing)
 - `app/cardev_scraper.py` — Career Development 9-12 (PDF two-column extraction)
-- `app/ela_scraper.py` — English Language Arts S1-S4 (PDF parsing)
+- `app/ela_scraper.py` — English Language Arts K-12 (new 2025 framework) + S1-S4 legacy
 - `app/arts_scraper.py` — Arts Education K-8 per grade (Dance, Drama, Music, Visual Arts)
 - `app/glo_definitions.py` — Science GLO reference definitions
