@@ -211,4 +211,6 @@ def scrape_all_arts912(
         # Split into per-grade files
         split_to_per_grade(output_data, output_dir, f"Arts_{safe_name}", progress_callback=progress_callback)
 
+        doc.close()
+
     return results

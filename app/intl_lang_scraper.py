@@ -2,10 +2,10 @@
 
 Scrapes curriculum outcomes for:
 - ASL (American Sign Language) Gr 9-12
-- Spanish Gr S1-S4
+- Spanish Gr 7-S4 (6-year program)
 - Hebrew K-6
-- German Gr 7-12
-- Ukrainian K-3, 4-6
+- German Gr 7-12 (Language of Study)
+- Ukrainian K-3, 4-6 (Foundation), K-S4 (Framework)
 
 All use the Manitoba language curriculum framework pattern:
 GLOs (Applications, Language Competence, Global Citizenship, Strategies)
@@ -41,15 +41,17 @@ LANG_CONFIGS = {
         "cluster_pattern": r"^([A-Z]+)[-–](\d+)\s+(.+)",
         "strand_pattern": r"\(([A-Z]+-?\d+\.\d+)\)",
     },
-    "Spanish_S1S4": {
-        "url": "https://www.edu.gov.mb.ca/k12/cur/languages/spanish/foundation/s1-s4/full_doc.pdf",
-        "grade_range": "S1-S4",
-        "grades": ["Senior 1", "Senior 2", "Senior 3", "Senior 4"],
+    "Spanish_7S4": {
+        "url": "https://www.edu.gov.mb.ca/k12/cur/languages/spanish/foundation/g7-s4/full_doc.pdf",
+        "grade_range": "7-S4",
+        "grades": ["7", "8", "Senior 1", "Senior 2", "Senior 3", "Senior 4"],
         "grade_page_ranges": {
-            "Senior 1": (37, 120),
-            "Senior 2": (127, 220),
-            "Senior 3": (233, 318),
-            "Senior 4": (318, 412),
+            "7": (36, 118),
+            "8": (118, 196),
+            "Senior 1": (196, 278),
+            "Senior 2": (278, 358),
+            "Senior 3": (358, 444),
+            "Senior 4": (444, 558),
         },
         "col_split": None,
     },
@@ -83,6 +85,11 @@ LANG_CONFIGS = {
         "grade_range": "4-6",
         "grades": ["4", "5", "6"],
         "appendix_start": 790,
+    },
+    "Ukrainian_KS4_Framework": {
+        "url": "https://www.edu.gov.mb.ca/k12/cur/languages/ukrainian/mb_framework/ks4_framework.pdf",
+        "grade_range": "K-S4",
+        "grades": ["K", "1", "2", "3", "4", "5", "6", "7", "8", "S1", "S2", "S3", "S4"],
     },
 }
 
@@ -362,7 +369,12 @@ def _parse_hebrew_ukrainian(doc, grades, subject_name) -> list[dict]:
             for bline in b["lines"]:
                 btext = "".join(s["text"] for s in bline["spans"]).strip()
                 for g in grades:
-                    grade_label = f"Grade {g}" if g != "K" else "Kindergarten"
+                    if g == "K":
+                        grade_label = "Kindergarten"
+                    elif g.startswith("S") and len(g) <= 2:
+                        grade_label = f"Senior {g[1:]}"
+                    else:
+                        grade_label = f"Grade {g}"
                     if btext == grade_label:
                         grade_positions.append((g, bline["bbox"][0]))
 
@@ -372,16 +384,48 @@ def _parse_hebrew_ukrainian(doc, grades, subject_name) -> list[dict]:
         # Sort by x position
         grade_positions.sort(key=lambda x: x[1])
 
-        # Define column boundaries
+        # Define column boundaries using midpoints between grade headers
+        # Detect strand label x range by finding the gap between strand labels
+        # and grade content. Strand labels cluster at x < ~100, grade content at x > ~120.
+        strand_xs = []
+        for b2 in blocks:
+            if "lines" not in b2:
+                continue
+            for bl in b2["lines"]:
+                bt = "".join(s["text"] for s in bl["spans"]).strip()
+                bx = bl["bbox"][0]
+                if bt and bx < grade_positions[0][1] - 20 and not re.match(r"^\d", bt):
+                    strand_xs.append(bx)
+        if strand_xs:
+            strand_xs_sorted = sorted(set(round(x) for x in strand_xs))
+            # Find biggest gap in sorted x positions to separate strand labels from content
+            best_gap_pos = strand_xs_sorted[0]
+            best_gap_size = 0
+            for j in range(len(strand_xs_sorted) - 1):
+                gap = strand_xs_sorted[j + 1] - strand_xs_sorted[j]
+                if gap > best_gap_size:
+                    best_gap_size = gap
+                    best_gap_pos = strand_xs_sorted[j]
+            if best_gap_size > 15:
+                strand_x_max = best_gap_pos + best_gap_size // 2
+            else:
+                strand_x_max = grade_positions[0][1] - 50
+        else:
+            strand_x_max = grade_positions[0][1] - 50
+
         col_boundaries = []
         for i, (g, x) in enumerate(grade_positions):
-            left = x - 20
-            right = grade_positions[i + 1][1] - 20 if i + 1 < len(grade_positions) else 9999
+            if i == 0:
+                left = strand_x_max
+            else:
+                left = (grade_positions[i - 1][1] + x) / 2
+            if i == len(grade_positions) - 1:
+                right = 9999
+            else:
+                right = (x + grade_positions[i + 1][1]) / 2
             col_boundaries.append((g, left, right))
 
         # Second pass: extract outcomes by column
-        # Find strand labels and numbered outcomes
-        strand_x_max = grade_positions[0][1] - 30 if grade_positions else 120
 
         for b in blocks:
             if "lines" not in b:
@@ -397,6 +441,8 @@ def _parse_hebrew_ukrainian(doc, grades, subject_name) -> list[dict]:
                 if "General Learning" in btext or re.match(r"^[A-Z] [a-z] [a-z]", btext):
                     continue
                 if any(btext == f"Grade {g}" for g in grades) or btext == "Kindergarten":
+                    continue
+                if any(btext == f"Senior {g[1:]}" for g in grades if g.startswith("S")):
                     continue
                 if btext.startswith("By the end"):
                     continue
@@ -538,6 +584,149 @@ def _parse_ukrainian_appendix(doc, appendix_start, grades) -> list[dict]:
     return clusters
 
 
+def _parse_ukrainian_ks4_framework(doc) -> list[dict]:
+    """Parse Ukrainian K-S4 Framework PDF with grade-row layout.
+
+    This PDF uses landscape pages with grades as ROWS (y-axis) and
+    strand columns within each row. Grade labels are at x≈529.
+    """
+    ALL_GRADES = [
+        "Kindergarten", "Grade 1", "Grade 2", "Grade 3",
+        "Grade 4", "Grade 5", "Grade 6", "Grade 7",
+        "Grade 8", "Senior 1", "Senior 2", "Senior 3", "Senior 4",
+    ]
+    GRADE_MAP = {
+        "Kindergarten": "K", "Grade 1": "1", "Grade 2": "2", "Grade 3": "3",
+        "Grade 4": "4", "Grade 5": "5", "Grade 6": "6", "Grade 7": "7",
+        "Grade 8": "8", "Senior 1": "S1", "Senior 2": "S2",
+        "Senior 3": "S3", "Senior 4": "S4",
+    }
+
+    all_slos: dict[str, list[dict]] = {}
+
+    for p in range(15, 140):
+        if p >= len(doc):
+            break
+        page = doc[p]
+        blocks = page.get_text("dict")["blocks"]
+        page_height = page.rect.height
+
+        # Find grade header y positions
+        grade_y = []
+        for b in blocks:
+            if "lines" not in b:
+                continue
+            for line in b["lines"]:
+                text = "".join(s["text"] for s in line["spans"]).strip()
+                if text in ALL_GRADES:
+                    grade_y.append((text, line["bbox"][1]))
+
+        if not grade_y:
+            continue
+        grade_y.sort(key=lambda g: g[1])
+
+        # Detect GLO and cluster from page text
+        full_text = page.get_text()
+        glo_num = ""
+        glo_match = re.search(r"General Learning Outcome (\d+)", full_text)
+        if glo_match:
+            glo_num = glo_match.group(1)
+
+        cluster_code = ""
+        cluster_name = ""
+        cluster_match = re.search(r"(\d+\.\d+)\s*\n\s*([A-Z][a-z].*?)(?:\n|$)", full_text)
+        if cluster_match:
+            cluster_code = cluster_match.group(1)
+            cluster_name = cluster_match.group(2).strip()
+
+        if not glo_num and cluster_code:
+            glo_num = cluster_code.split(".")[0]
+
+        # Build y-bands for each grade
+        for i, (g_label, g_y) in enumerate(grade_y):
+            grade_key = GRADE_MAP.get(g_label, g_label)
+
+            top = g_y - 15
+            if i + 1 < len(grade_y):
+                bottom = grade_y[i + 1][1] - 15
+            else:
+                bottom = page_height
+
+            if bottom - top < 10:
+                continue
+
+            # Extract text from this band (exclude grade label area x > 525)
+            rect = fitz.Rect(60, top, 525, bottom)
+            band_text = page.get_text("text", clip=rect)
+
+            if not band_text.strip():
+                continue
+
+            # Parse SLO bullets and join continuation lines
+            lines = band_text.split("\n")
+            current_slo_desc = None
+            slo_list = []
+
+            for line in lines:
+                line = line.strip()
+                if not line or len(line) < 3:
+                    continue
+                # Skip noise
+                if "Students will" in line or "General Learning" in line:
+                    continue
+                if re.match(r"^\d+$", line):
+                    continue
+
+                if line.startswith("•"):
+                    if current_slo_desc is not None:
+                        slo_list.append(current_slo_desc)
+                    current_slo_desc = line.lstrip("• ").strip()
+                elif current_slo_desc is not None:
+                    # Continuation of previous SLO
+                    current_slo_desc += " " + line
+
+            if current_slo_desc is not None:
+                slo_list.append(current_slo_desc)
+
+            for idx, desc in enumerate(slo_list, 1):
+                if desc and len(desc) > 3:
+                    code = f"UK.{grade_key}.{cluster_code}.{idx}" if cluster_code else f"UK.{grade_key}.{glo_num}.{idx}"
+                    all_slos.setdefault(grade_key, []).append({
+                        "code": code,
+                        "glo": f"GLO {glo_num}" if glo_num else "",
+                        "glo_description": "",
+                        "cluster": f"{cluster_code}: {cluster_name}" if cluster_code else "",
+                        "description": desc,
+                    })
+
+    # Convert to cluster-based format
+    clusters = []
+    for grade_key, slos in all_slos.items():
+        for slo in slos:
+            cluster_id = slo.get("cluster", "Unknown")
+            existing = None
+            for c in clusters:
+                if c["id"] == cluster_id:
+                    existing = c
+                    break
+            if not existing:
+                existing = {
+                    "id": cluster_id,
+                    "title": cluster_id,
+                    "description": slo.get("glo", ""),
+                    "specific_learning_outcomes": [],
+                }
+                clusters.append(existing)
+            existing["specific_learning_outcomes"].append({
+                "code": slo["code"],
+                "description": slo["description"],
+                "grade": grade_key,
+                "glo": [slo.get("glo", "")],
+            })
+
+    return clusters
+
+
 def scrape_all_intl_languages(
     output_dir: Path,
     progress_callback=None,
@@ -566,10 +755,12 @@ def scrape_all_intl_languages(
             clusters = _parse_asl_columns(
                 doc, config["glo_pages"], config["col_split"], config["grades"]
             )
-        elif lang_key in ("Spanish_S1S4", "German"):
+        elif lang_key in ("Spanish_7S4", "German"):
             clusters = _parse_spanish_german(
                 doc, config["grade_page_ranges"], lang_key
             )
+        elif lang_key == "Ukrainian_KS4_Framework":
+            clusters = _parse_ukrainian_ks4_framework(doc)
         elif lang_key.startswith("Ukrainian"):
             appendix_start = config.get("appendix_start")
             if appendix_start:
@@ -577,7 +768,9 @@ def scrape_all_intl_languages(
                     doc, appendix_start, config["grades"]
                 )
             else:
-                clusters = []
+                clusters = _parse_hebrew_ukrainian(
+                    doc, config["grades"], lang_key
+                )
         else:
             clusters = _parse_hebrew_ukrainian(
                 doc, config["grades"], lang_key
@@ -603,11 +796,12 @@ def scrape_all_intl_languages(
         # Split into per-grade files
         grade_map = {
             "ASL": ["10F", "20F", "30S", "40S"],
-            "Spanish_S1S4": ["Senior 1", "Senior 2", "Senior 3", "Senior 4"],
+            "Spanish_7S4": ["7", "8", "Senior 1", "Senior 2", "Senior 3", "Senior 4"],
         }
         grades = grade_map.get(lang_key, config.get("grades"))
         split_to_per_grade(output_data, output_dir, lang_key, grades=grades, progress_callback=progress_callback)
 
+        doc.close()
         results[lang_key] = clusters
 
     return results

@@ -133,6 +133,8 @@ def scrape_indigenous_gr12(
                 "specific_learning_outcomes": cluster_outcomes,
             })
 
+    doc.close()
+
     # Save
     output_data = {
         "subject": "Indigenous Education",

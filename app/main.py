@@ -134,7 +134,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-ict" onclick="startScrape('lwict')" id="btn-lwict" style="background:#3498db">Scrape Literacy with ICT (K-12)</button>
                 <button class="btn-ict" onclick="startScrape('french')" id="btn-french" style="background:#c0392b">Scrape French - English Program (K-12)</button>
                 <button class="btn-ict" onclick="startScrape('ab_lang')" id="btn-ab-lang" style="background:#d4a017">Scrape Aboriginal Languages (K-12)</button>
-                <button class="btn-ict" onclick="startScrape('german_bilingual')" id="btn-german-bi" style="background:#5d6d7e">Scrape German Bilingual (K-S4)</button>
+                <button class="btn-ict" onclick="startScrape('german_bilingual')" id="btn-german-bilingual" style="background:#5d6d7e">Scrape German Bilingual (K-S4)</button>
             </div>
             <div class="btn-row" style="margin-top:10px">
                 <button class="btn-all" onclick="startScrape('all')" id="btn-all">Scrape All Subjects</button>
@@ -155,7 +155,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let pollInterval = null;
-        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-german-bi', 'btn-all'];
+        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-german-bilingual', 'btn-all'];
         const btnOrigText = {};
 
         function disableAll() {
@@ -170,7 +170,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const btn = document.getElementById(id);
                 if (btn && btnOrigText[id]) btn.textContent = btnOrigText[id];
                 // Only enable buttons that are implemented
-                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-german-bi', 'btn-all'].includes(id) && btn) btn.disabled = false;
+                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-german-bilingual', 'btn-all'].includes(id) && btn) btn.disabled = false;
             });
         }
 
