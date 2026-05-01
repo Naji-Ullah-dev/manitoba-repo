@@ -268,6 +268,7 @@ def scrape_all_eal_courses(
             progress_callback(f"Parsing {label} ({len(pdf.pages)} pages)...")
 
         clusters = parser_fn(pdf)
+        pdf.close()
 
         output_data = {
             "subject": subject,

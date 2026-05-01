@@ -220,4 +220,6 @@ def scrape_all_eal_framework(
 
             results[f"{doc_key}_LAL"] = lal_clusters
 
+        pdf.close()
+
     return results

@@ -343,6 +343,7 @@ def _parse_hebrew_ukrainian(doc, grades, subject_name) -> list[dict]:
             cluster_m = re.match(r"^(\d+\.\d+)\s*$", line)
             if cluster_m:
                 current_cluster_code = cluster_m.group(1)
+                current_cluster_name = ""
                 continue
             # Next line after cluster code might be the name
             if current_cluster_code and not current_cluster_name and line and not line.startswith("Grade") and not line.startswith("Kindergarten"):
