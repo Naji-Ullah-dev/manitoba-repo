@@ -209,11 +209,42 @@ def scrape_all_ab_lang(output_dir: Path, progress_callback=None) -> dict[str, li
         if not slos:
             continue
 
+        # Group SLOs into clusters by GLO
+        cluster_map: dict[str, dict] = {}
+        for slo in slos:
+            glo_info = slo.get("glo", {})
+            glo_code = glo_info.get("code", "Unknown")
+            if glo_code not in cluster_map:
+                cluster_map[glo_code] = {
+                    "id": glo_code,
+                    "title": glo_info.get("title", ""),
+                    "description": glo_info.get("description", ""),
+                    "specific_learning_outcomes": [],
+                }
+            cluster_map[glo_code]["specific_learning_outcomes"].append({
+                "code": slo["code"],
+                "description": slo["description"],
+                "grade": band,
+                "strand": slo.get("strand", ""),
+                "cluster": slo.get("cluster", ""),
+                "glo": [glo_code],
+            })
+
+        clusters = list(cluster_map.values())
+
+        output_data = {
+            "subject": "Aboriginal Languages",
+            "grade": band,
+            "course": f"Aboriginal Languages and Cultures {band}",
+            "framework_year": "Legacy Framework",
+            "clusters": clusters,
+        }
+
         filename = f"AboriginalLanguages_{band.replace('-', '_')}.json"
         filepath = output_dir / filename
 
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(slos, f, indent=2, ensure_ascii=False)
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
 
         results[filename] = slos
         if progress_callback:
