@@ -191,7 +191,7 @@ def scrape_all_ict(
     # Extract common SLOs
     if progress_callback:
         progress_callback("Parsing common SLOs...")
-    common_slos = _extract_numbered_slos(doc, COMMON_SLOS_PAGES[0], COMMON_SLOS_PAGES[1] + 1)
+    common_slos = _extract_numbered_slos(doc, COMMON_SLOS_PAGES[0], COMMON_SLOS_PAGES[1])
 
     results: dict[str, list] = {}
 
