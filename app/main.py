@@ -26,6 +26,7 @@ from app.intl_lang_scraper import scrape_all_intl_languages
 from app.indigenous_scraper import scrape_indigenous_gr12
 from app.lwict_scraper import scrape_lwict
 from app.french_scraper import scrape_all_french
+from app.ab_lang_scraper import scrape_all_ab_lang
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -131,6 +132,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-ict" onclick="startScrape('indigenous')" id="btn-indigenous" style="background:#8e44ad">Scrape Indigenous Education (Gr 12)</button>
                 <button class="btn-ict" onclick="startScrape('lwict')" id="btn-lwict" style="background:#3498db">Scrape Literacy with ICT (K-12)</button>
                 <button class="btn-ict" onclick="startScrape('french')" id="btn-french" style="background:#c0392b">Scrape French - English Program (K-12)</button>
+                <button class="btn-ict" onclick="startScrape('ab_lang')" id="btn-ab-lang" style="background:#d4a017">Scrape Aboriginal Languages (K-12)</button>
             </div>
             <div class="btn-row" style="margin-top:10px">
                 <button class="btn-all" onclick="startScrape('all')" id="btn-all">Scrape All Subjects</button>
@@ -151,7 +153,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let pollInterval = null;
-        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-all'];
+        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-all'];
         const btnOrigText = {};
 
         function disableAll() {
@@ -166,7 +168,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const btn = document.getElementById(id);
                 if (btn && btnOrigText[id]) btn.textContent = btnOrigText[id];
                 // Only enable buttons that are implemented
-                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-all'].includes(id) && btn) btn.disabled = false;
+                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-all'].includes(id) && btn) btn.disabled = false;
             });
         }
 
@@ -287,6 +289,7 @@ async def start_scrape(subject: str):
         "indigenous": _run_indigenous_scrape,
         "lwict": _run_lwict_scrape,
         "french": _run_french_scrape,
+        "ab_lang": _run_ab_lang_scrape,
         "all": _run_all_scrape,
     }
 
@@ -538,6 +541,18 @@ def _run_french_scrape():
         scrape_state["is_running"] = False
 
 
+def _run_ab_lang_scrape():
+    try:
+        results = scrape_all_ab_lang(_subject_dir("AboriginalLanguages"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Aboriginal Languages scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
 def _run_all_scrape():
     """Run all scrapers sequentially."""
     all_scrapers = [
@@ -560,6 +575,7 @@ def _run_all_scrape():
         ("Indigenous Education", _run_indigenous_scrape_inner),
         ("Literacy with ICT", _run_lwict_scrape_inner),
         ("French (English Program)", _run_french_scrape_inner),
+        ("Aboriginal Languages", _run_ab_lang_scrape_inner),
     ]
     try:
         for i, (name, func) in enumerate(all_scrapers, 1):
@@ -634,6 +650,9 @@ def _run_lwict_scrape_inner():
 
 def _run_french_scrape_inner():
     scrape_all_french(_subject_dir("French"), progress_callback=log_progress)
+
+def _run_ab_lang_scrape_inner():
+    scrape_all_ab_lang(_subject_dir("AboriginalLanguages"), progress_callback=log_progress)
 
 
 @app.get("/api/status")
