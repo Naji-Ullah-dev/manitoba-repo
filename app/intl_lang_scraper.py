@@ -482,7 +482,7 @@ def _parse_ukrainian_appendix(doc, appendix_start, grades) -> list[dict]:
             # Skip decorative/header lines
             if line.startswith("_") or re.match(r'^[A-Z] [a-z] [a-z]', line):
                 continue
-            if line.startswith("A\u2013") or line.startswith("A-") and len(line) < 6:
+            if (line.startswith("A\u2013") or line.startswith("A-")) and len(line) < 6:
                 continue
             if "Appendix" in line or "NOTES:" in line:
                 continue

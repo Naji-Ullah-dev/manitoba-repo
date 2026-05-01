@@ -265,8 +265,28 @@ def scrape_all_french(output_dir: Path, progress_callback=None) -> dict[str, lis
         filename = f"French_{'K' if grade == 'K' else f'Gr{grade}'}.json"
         filepath = output_dir / filename
 
+        # Group outcomes by strand for cluster structure
+        strand_groups: dict[str, list[dict]] = {}
+        for o in outcomes:
+            strand_groups.setdefault(o["strand"], []).append(o)
+
+        clusters = []
+        for strand_name, strand_outcomes in strand_groups.items():
+            clusters.append({
+                "id": f"FR_{grade}_{strand_name.replace(' ', '_')}",
+                "title": strand_name,
+                "specific_learning_outcomes": strand_outcomes,
+            })
+
+        output_data = {
+            "subject": "French (English Program)",
+            "grade": grade,
+            "course": f"French (English Program) {'Early Start' if grade in ('K','1','2','3') else 'Communication and Culture'} Grade {grade}" if grade != "K" else "French (English Program) Early Start Kindergarten",
+            "clusters": clusters,
+        }
+
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(outcomes, f, indent=2, ensure_ascii=False)
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
 
         all_results[filename] = outcomes
         if progress_callback:
