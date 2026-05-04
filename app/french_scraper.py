@@ -282,6 +282,7 @@ def scrape_all_french(output_dir: Path, progress_callback=None) -> dict[str, lis
             "subject": "French (English Program)",
             "grade": grade,
             "course": f"French (English Program) {'Early Start' if grade in ('K','1','2','3') else 'Communication and Culture'} Grade {grade}" if grade != "K" else "French (English Program) Early Start Kindergarten",
+            "framework_year": "Legacy Framework",
             "clusters": clusters,
         }
 
