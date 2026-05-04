@@ -1,7 +1,14 @@
 """Manitoba Career Development curriculum scraper (Grades 9-12).
 
-Uses position-based column extraction from two-column PDFs to get
-full-credit course outcomes organized by Units and GLOs.
+Parses full-credit Foundation for Implementation PDFs to extract:
+  - Units with descriptions
+  - GLOs with SLOs grouped hierarchically
+  - Appendices metadata
+
+Output format:
+  units → glos → slos  (one JSON per grade)
+
+Source: edu.gov.mb.ca/k12/cur/cardev/gr{N}_found/docs/full_doc.pdf
 """
 
 import json
@@ -14,16 +21,26 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://www.edu.gov.mb.ca/k12/cur/cardev/docs"
-
-GRADE_PDFS: dict[str, str] = {
-    "9": f"{BASE_URL}/gr9_half.pdf",
-    "10": f"{BASE_URL}/gr10_half.pdf",
-    "11": f"{BASE_URL}/gr11_half.pdf",
-    "12": f"{BASE_URL}/gr12_half.pdf",
+GRADE_INFO: dict[str, dict] = {
+    "9": {
+        "url": "https://www.edu.gov.mb.ca/k12/cur/cardev/gr9_found/docs/full_doc.pdf",
+        "subtitle": "Life/Work Exploration",
+    },
+    "10": {
+        "url": "https://www.edu.gov.mb.ca/k12/cur/cardev/gr10_found/docs/full_doc.pdf",
+        "subtitle": "Life/Work Planning",
+    },
+    "11": {
+        "url": "https://www.edu.gov.mb.ca/k12/cur/cardev/gr11_found/docs/full_doc.pdf",
+        "subtitle": "Life/Work Building",
+    },
+    "12": {
+        "url": "https://www.edu.gov.mb.ca/k12/cur/cardev/gr12_found/docs/full_doc.pdf",
+        "subtitle": "Life/Work Transitioning",
+    },
 }
 
-GLO_FULL_DESCRIPTIONS: dict[str, str] = {
+GLO_TITLES: dict[str, str] = {
     "A": "Build and maintain a positive self-image.",
     "B": "Interact positively and effectively with others.",
     "C": "Change and grow throughout life.",
@@ -35,158 +52,177 @@ GLO_FULL_DESCRIPTIONS: dict[str, str] = {
     "I": "Make life/work enhancing decisions.",
     "J": "Understand, engage in, and manage own life/work building process.",
     "K": "Secure/create and maintain work.",
-    "L": "Understand, engage in, and manage one's own life/work building process.",
-    "M": "Locate and effectively use life/work information.",
 }
 
-COLUMN_THRESHOLD = 300  # x < 300 = left column (full-credit)
+APPENDICES = [
+    {
+        "id": "A",
+        "title": "Blackline Masters: Units 1\u20135",
+        "short_description": "Reproducible blackline masters supporting the learning experiences across Units 1 to 5.",
+    },
+    {
+        "id": "B",
+        "title": "Strategies for Instruction and Assessment",
+        "short_description": "Instructional and assessment strategies referenced throughout the units.",
+    },
+]
 
 
-def _download_pdf(url: str, dest: Path) -> Path:
-    """Download a PDF file."""
-    with httpx.Client(timeout=60, follow_redirects=True) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
-        dest.write_bytes(resp.content)
-    return dest
+def _download(url: str, dest: Path):
+    if dest.exists() and dest.stat().st_size > 10000:
+        return
+    resp = httpx.get(url, follow_redirects=True, timeout=120)
+    resp.raise_for_status()
+    dest.write_bytes(resp.content)
 
 
-def _extract_left_column_lines(pdf_path: Path) -> list[str]:
-    """Extract text lines from the left column only (full-credit course)."""
-    doc = fitz.open(str(pdf_path))
-    lines: list[str] = []
+def _parse_foundation_pdf(doc) -> list[dict]:
+    """Parse the Foundation PDF intro section to extract units, GLOs, and SLOs."""
+    units: list[dict] = []
 
-    for page in doc:
-        blocks = page.get_text("dict")["blocks"]
-        for block in blocks:
-            if "lines" not in block:
-                continue
-            x0 = block["bbox"][0]
-            if x0 >= COLUMN_THRESHOLD:
-                continue
-            for line in block["lines"]:
-                text = " ".join(span["text"] for span in line["spans"]).strip()
-                if text:
-                    # Remove PDF bullet characters and other non-ASCII artifacts
-                    text = text.lstrip("\uf0a7\uf0b7\uf0a8\u2022\u2023\u25cf ")
-                    text = text.strip()
-                    if text:
-                        lines.append(text)
+    current_unit_num = None
+    current_unit_title = ""
+    current_unit_desc_parts: list[str] = []
+    capturing_desc = False
 
-    doc.close()
-    return lines
-
-
-def _parse_outcomes(lines: list[str]) -> list[dict]:
-    """Parse Unit/GLO/outcome structure from left-column lines."""
-    current_unit = ""
     current_glo_code = ""
-    current_glo_desc = ""
-    current_outcome: dict | None = None
-    all_outcomes: list[dict] = []
+    current_slos: list[dict] = []
+    unit_glos: list[dict] = []
 
-    skip_patterns = [
-        "Manitoba Education", "Current as of", "This document",
-        "website at", "half-credit", "full-credit", "developed for",
-        "Full-Credit Course", "Half-Credit Course",
-    ]
+    slo_re = re.compile(r"^(\d+\.[A-Z]\.\d+)\s*(.*)")
+    glo_re = re.compile(r"General Learning Outcome \(GLO\)\s+([A-Z]):")
+    unit_re = re.compile(r"^Unit\s+(\d+):\s+(.+)")
 
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
+    def _save_glo():
+        nonlocal current_glo_code, current_slos
+        if current_glo_code and current_slos:
+            unit_glos.append({
+                "code": current_glo_code,
+                "title": GLO_TITLES.get(current_glo_code, ""),
+                "slos": current_slos,
+            })
+        current_slos = []
+        current_glo_code = ""
 
-        # Skip page numbers and headers
-        if re.match(r"^\d+$", line):
+    def _save_unit():
+        nonlocal current_unit_num, current_unit_desc_parts, capturing_desc, unit_glos
+        _save_glo()
+        if current_unit_num:
+            desc = re.sub(r"\s+", " ", " ".join(current_unit_desc_parts)).strip()
+            units.append({
+                "id": f" Unit {current_unit_num}",
+                "title": current_unit_title,
+                "description": desc,
+                "glos": unit_glos,
+            })
+        current_unit_desc_parts = []
+        capturing_desc = False
+        unit_glos = []
+
+    # Scan intro pages (typically pages 10-35) for unit definitions
+    for pg_idx in range(10, min(45, doc.page_count)):
+        text = doc[pg_idx].get_text()
+        lines = text.split("\n")
+
+        i = 0
+        while i < len(lines):
+            l = lines[i].strip()
             i += 1
-            continue
-        if any(pat.lower() in line.lower() for pat in skip_patterns):
-            i += 1
-            continue
 
-        # Unit header
-        m = re.match(r"Unit\s+(\d+):\s+(.+)", line)
-        if m:
-            if current_outcome:
-                all_outcomes.append(current_outcome)
-                current_outcome = None
-            current_unit = m.group(2)
-            i += 1
-            continue
+            if not l:
+                continue
+            # Skip spaced headers and page numbers
+            if re.match(r"^[A-Z]\s[a-z]\s[a-z]", l):
+                continue
+            if re.match(r"^\d+$", l):
+                continue
+            if l.startswith("Specific Learning Outcome") or l.startswith("Students will be able"):
+                capturing_desc = False
+                continue
 
-        # GLO header (may span multiple lines)
-        m = re.match(r"GLO\s+([A-Z]):\s+(.+)", line)
-        if m:
-            if current_outcome:
-                all_outcomes.append(current_outcome)
-                current_outcome = None
-            current_glo_code = m.group(1)
-            current_glo_desc = m.group(2)
-            # Check for continuation lines
-            while i + 1 < len(lines):
-                nxt = lines[i + 1].strip()
-                if not nxt or re.match(r"(\d+\.[A-Z]\.\d+|GLO|Unit)", nxt):
-                    break
-                if len(nxt) < 80:
-                    current_glo_desc += " " + nxt
+            # Unit header
+            um = unit_re.match(l)
+            if um:
+                _save_unit()
+                current_unit_num = um.group(1)
+                current_unit_title = um.group(2)
+                current_unit_desc_parts = []
+                capturing_desc = True
+                continue
+
+            # GLO header
+            gm = glo_re.match(l)
+            if gm:
+                _save_glo()
+                if capturing_desc and current_unit_desc_parts:
+                    capturing_desc = False
+                current_glo_code = gm.group(1)
+                continue
+
+            # SLO code
+            sm = slo_re.match(l)
+            if sm:
+                capturing_desc = False
+                code = sm.group(1)
+                desc_parts = [sm.group(2).strip()] if sm.group(2).strip() else []
+                # Collect continuation lines
+                while i < len(lines):
+                    nl = lines[i].strip()
+                    if not nl:
+                        i += 1
+                        continue
+                    if slo_re.match(nl) or glo_re.match(nl) or unit_re.match(nl):
+                        break
+                    if nl.startswith("General Learning") or nl.startswith("Specific Learning") or nl.startswith("Students will be able"):
+                        break
+                    if re.match(r"^[A-Z]\s[a-z]\s[a-z]", nl) or re.match(r"^\d+$", nl):
+                        break
+                    desc_parts.append(nl)
                     i += 1
-                else:
-                    break
-            i += 1
-            continue
+                desc = re.sub(r"\s+", " ", " ".join(desc_parts)).strip()
+                current_slos.append({"code": code, "description": desc})
+                continue
 
-        # Outcome code: N.X.N
-        m = re.match(r"(\d+\.[A-Z]\.\d+)\s+(.+)", line)
-        if m:
-            if current_outcome:
-                all_outcomes.append(current_outcome)
-            current_outcome = {
-                "code": m.group(1),
-                "description": m.group(2),
-                "unit": current_unit,
-                "glo_code": current_glo_code,
-                "glo_desc": current_glo_desc,
-            }
-            i += 1
-            continue
+            # Unit description continuation
+            if capturing_desc and current_unit_num:
+                current_unit_desc_parts.append(l)
 
-        # Continuation line for current outcome description
-        if current_outcome and not line.startswith("GLO") and not line.startswith("Unit"):
-            current_outcome["description"] += " " + line
-            i += 1
-            continue
+    # Save last unit
+    _save_unit()
 
-        i += 1
+    # Deduplicate: keep only units that have GLOs with SLOs
+    seen_unit_nums: set[str] = set()
+    deduped: list[dict] = []
+    for u in units:
+        num = u["id"].strip().replace("Unit ", "")
+        has_slos = any(len(g["slos"]) > 0 for g in u["glos"])
+        if has_slos and num not in seen_unit_nums:
+            seen_unit_nums.add(num)
+            deduped.append(u)
 
-    if current_outcome:
-        all_outcomes.append(current_outcome)
-
-    # Deduplicate by code
-    seen: set[str] = set()
-    unique: list[dict] = []
-    for o in all_outcomes:
-        if o["code"] not in seen:
-            seen.add(o["code"])
-            unique.append(o)
-
-    return unique
+    return deduped
 
 
 def scrape_all_cardev(
     output_dir: Path,
     progress_callback=None,
 ) -> dict[str, list]:
-    """Scrape Career Development Grades 9-12."""
+    """Scrape Career Development Grades 9-12 from Foundation PDFs."""
     results: dict[str, list] = {}
-    tmp_dir = Path("/tmp/cardev_pdfs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path("/tmp/cardev_found_pdfs")
     tmp_dir.mkdir(exist_ok=True)
 
-    for grade, url in GRADE_PDFS.items():
+    for grade, info in GRADE_INFO.items():
+        url = info["url"]
+        subtitle = info["subtitle"]
+
         if progress_callback:
-            progress_callback(f"Downloading Career Dev Grade {grade} PDF...")
+            progress_callback(f"Downloading Career Dev Grade {grade} Foundation PDF...")
 
         try:
-            pdf_path = tmp_dir / f"gr{grade}.pdf"
-            _download_pdf(url, pdf_path)
+            pdf_path = tmp_dir / f"gr{grade}_found.pdf"
+            _download(url, pdf_path)
         except Exception as e:
             if progress_callback:
                 progress_callback(f"ERROR downloading Grade {grade}: {e}")
@@ -195,55 +231,35 @@ def scrape_all_cardev(
         if progress_callback:
             progress_callback(f"Parsing Career Dev Grade {grade}...")
 
-        lines = _extract_left_column_lines(pdf_path)
-        outcomes = _parse_outcomes(lines)
-
-        # Group outcomes by Unit (as clusters)
-        units: dict[str, list[dict]] = {}
-        for o in outcomes:
-            units.setdefault(o["unit"], [])
-            units[o["unit"]].append(o)
-
-        clusters: list[dict] = []
-        for unit_title, unit_outcomes in units.items():
-            slos = []
-            for o in unit_outcomes:
-                glo_code = o["glo_code"]
-                glo_desc = GLO_FULL_DESCRIPTIONS.get(
-                    glo_code, o.get("glo_desc", "")
-                )
-                slos.append({
-                    "code": o["code"],
-                    "description": o["description"],
-                    "glo": [f"GLO {glo_code}"],
-                    "glo_description": [f"GLO {glo_code}: {glo_desc}"],
-                })
-            clusters.append({
-                "id": unit_title,
-                "title": unit_title,
-                "description": "",
-                "specific_learning_outcomes": slos,
-            })
-
-        results[grade] = clusters
+        doc = fitz.open(str(pdf_path))
+        units = _parse_foundation_pdf(doc)
+        doc.close()
 
         output_data = {
-            "subject": "Career Development",
+            "subject": f"Career Development: {subtitle} 2017",
             "grade": grade,
-            "course": f"{grade} Career Development",
-            "framework_year": "Framework 2014",
-            "clusters": clusters,
+            "framework_year": "2017",
+            "document_title": (
+                f"Grade {grade} Career Development: {subtitle}: "
+                "Manitoba Curriculum Framework of Outcomes and A Foundation for Implementation"
+            ),
+            "units": units,
+            "appendices": APPENDICES,
         }
+
+        results[grade] = units
 
         filename = f"CareerDev_Grade_{grade}.json"
         filepath = output_dir / filename
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(output_data, f, indent=4, ensure_ascii=False)
 
-        total_outcomes = sum(len(c["specific_learning_outcomes"]) for c in clusters)
+        total_slos = sum(
+            len(s) for u in units for g in u["glos"] for s in [g["slos"]]
+        )
         if progress_callback:
             progress_callback(
-                f"Saved {filename}: {len(clusters)} units, {total_outcomes} outcomes"
+                f"Saved {filename}: {len(units)} units, {total_slos} SLOs"
             )
 
     return results

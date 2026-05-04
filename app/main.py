@@ -695,8 +695,16 @@ async def get_results():
             grade = data.get("grade", "")
             clusters = data.get("clusters", [])
             learning_areas = data.get("learning_areas", [])
+            units = data.get("units", [])
 
-            if learning_areas:
+            if units:
+                n_groups = len(units)
+                total_slos = sum(
+                    len(g.get("slos", []))
+                    for u in units
+                    for g in u.get("glos", [])
+                )
+            elif learning_areas:
                 n_groups = len(learning_areas)
                 total_slos = sum(
                     len(el)
