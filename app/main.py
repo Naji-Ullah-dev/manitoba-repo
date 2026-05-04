@@ -119,7 +119,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-ela" onclick="startScrape('ela_legacy')" id="btn-ela-legacy" style="background:#a04000">Scrape ELA S1-S4 (Legacy)</button>
                 <button class="btn-cardev" onclick="startScrape('cardev')" id="btn-cardev">Scrape Career Development</button>
                 <button class="btn-physed" onclick="startScrape('physed')" id="btn-physed">Scrape Phys Ed / Health Ed</button>
-                <button class="btn-arts" onclick="startScrape('arts')" id="btn-arts">Scrape Arts Education (K-8, per grade)</button>
+                <button class="btn-arts" onclick="startScrape('arts')" id="btn-arts">Scrape Arts Education (K-8, hierarchical)</button>
             </div>
             <div class="btn-row">
                 <button class="btn-sustour" onclick="startScrape('sustour')" id="btn-sustour">Scrape Sustainable Tourism (11-12)</button>
