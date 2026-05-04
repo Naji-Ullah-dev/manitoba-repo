@@ -694,15 +694,33 @@ async def get_results():
 
             grade = data.get("grade", "")
             clusters = data.get("clusters", [])
-            total_slos = sum(
-                len(c.get("specific_learning_outcomes", []))
-                for c in clusters
-            )
+            learning_areas = data.get("learning_areas", [])
+
+            if learning_areas:
+                n_groups = len(learning_areas)
+                total_slos = sum(
+                    len(el)
+                    for la in learning_areas
+                    for rl in la.get("recursive_learnings", [])
+                    for el in [rl.get("enacted_learnings", [])]
+                )
+                if total_slos == 0:
+                    total_slos = sum(
+                        len(la.get("recursive_learnings", []))
+                        for la in learning_areas
+                    )
+            else:
+                n_groups = len(clusters)
+                total_slos = sum(
+                    len(c.get("specific_learning_outcomes", []))
+                    for c in clusters
+                )
+
             rel_path = filepath.relative_to(OUTPUT_DIR)
             files.append({
                 "filename": str(rel_path),
                 "grade": grade,
-                "clusters": len(clusters),
+                "clusters": n_groups,
                 "slos": total_slos,
             })
         except Exception:
