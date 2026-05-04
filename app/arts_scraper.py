@@ -363,6 +363,59 @@ def _parse_discipline(doc: fitz.Document, prefix: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Grade-band → individual grades mapping
+# ─────────────────────────────────────────────────────────────────────
+
+ALL_GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8"]
+
+_BAND_GRADE_MAP: dict[str, list[str]] = {
+    "K": ["K"], "1": ["1"], "2": ["2"], "3": ["3"], "4": ["4"],
+    "5": ["5"], "6": ["6"], "7": ["7"], "8": ["8"],
+    "K-1": ["K", "1"], "K-2": ["K", "1", "2"],
+    "K-4": ["K", "1", "2", "3", "4"],
+    "K-8": ALL_GRADES[:],
+    "1-4": ["1", "2", "3", "4"], "1-6": ["1", "2", "3", "4", "5", "6"],
+    "1-8": ["1", "2", "3", "4", "5", "6", "7", "8"],
+    "2-4": ["2", "3", "4"],
+    "3-4": ["3", "4"], "3-6": ["3", "4", "5", "6"], "3-8": ["3", "4", "5", "6", "7", "8"],
+    "5-6": ["5", "6"], "5-8": ["5", "6", "7", "8"],
+    "7-8": ["7", "8"],
+}
+
+
+def _grades_for_band(band: str) -> list[str]:
+    normalized = band.replace("\u2013", "-").replace("–", "-")
+    return _BAND_GRADE_MAP.get(normalized, ALL_GRADES[:])
+
+
+def _filter_for_grade(learning_areas: list[dict], grade: str) -> list[dict]:
+    """Return a copy of learning_areas containing only enacted learnings
+    that apply to the given grade."""
+    filtered_las: list[dict] = []
+    for la in learning_areas:
+        filtered_rls: list[dict] = []
+        for rl in la["recursive_learnings"]:
+            filtered_enacted = [
+                e for e in rl["enacted_learnings"]
+                if grade in _grades_for_band(e["grades"])
+            ]
+            if filtered_enacted:
+                filtered_rls.append({
+                    "code": rl["code"],
+                    "title": rl["title"],
+                    "enacted_learnings": filtered_enacted,
+                })
+        if filtered_rls:
+            filtered_las.append({
+                "id": la["id"],
+                "title": la["title"],
+                "description": la["description"],
+                "recursive_learnings": filtered_rls,
+            })
+    return filtered_las
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Public entry point
 # ─────────────────────────────────────────────────────────────────────
 
@@ -372,8 +425,9 @@ def scrape_all_arts(
 ) -> dict[str, list]:
     """Scrape Arts Education K-8 (Dance, Dramatic Arts, Music, Visual Arts).
 
-    Produces one comprehensive JSON per discipline with the full
-    recursive-learning hierarchy.
+    Produces per-grade JSON files for each discipline, each containing
+    the hierarchical structure (learning_areas → recursive_learnings →
+    enacted_learnings) filtered to that grade.
     """
     results: dict[str, list] = {}
     tmp_dir = Path("/tmp/arts_pdfs")
@@ -402,34 +456,42 @@ def scrape_all_arts(
         parsed = _parse_discipline(doc, prefix)
         doc.close()
 
-        output_data = {
-            "subject": disc_name,
-            "grade_range": "Kindergarten to Grade 8",
-            "framework_year": "2021",
-            "document_title": full_name,
-            "learning_areas": parsed["learning_areas"],
-            "appendices": parsed["appendices"],
-        }
+        all_las = parsed["learning_areas"]
+        appendices = parsed["appendices"]
 
-        filename = f"Arts_{disc_name.replace(' ', '')}_K8.json"
-        filepath = output_dir / filename
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(output_data, f, indent=4, ensure_ascii=False)
+        for grade in ALL_GRADES:
+            grade_las = _filter_for_grade(all_las, grade)
+            if not grade_las:
+                continue
 
-        total_enacted = sum(
-            len(e)
-            for la in parsed["learning_areas"]
-            for rl in la["recursive_learnings"]
-            for e in [rl["enacted_learnings"]]
-        )
-        n_rls = sum(len(la["recursive_learnings"]) for la in parsed["learning_areas"])
-        result_key = disc_name
-        results[result_key] = parsed["learning_areas"]
+            grade_label = "Kindergarten" if grade == "K" else f"Grade {grade}"
+            output_data = {
+                "subject": disc_name,
+                "grade": grade_label,
+                "grade_range": "Kindergarten to Grade 8",
+                "framework_year": "2021",
+                "document_title": full_name,
+                "learning_areas": grade_las,
+                "appendices": appendices,
+            }
 
-        if progress_callback:
-            progress_callback(
-                f"Saved {filename}: {len(parsed['learning_areas'])} learning areas, "
-                f"{n_rls} recursive learnings, {total_enacted} enacted learnings"
+            filename = f"Arts_{disc_name.replace(' ', '')}_{grade}.json"
+            filepath = output_dir / filename
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(output_data, f, indent=4, ensure_ascii=False)
+
+            total_enacted = sum(
+                len(rl["enacted_learnings"])
+                for la in grade_las
+                for rl in la["recursive_learnings"]
             )
+            result_key = f"{disc_name}_{grade}"
+            results[result_key] = grade_las
+
+            if progress_callback:
+                progress_callback(
+                    f"Saved {filename}: {len(grade_las)} learning areas, "
+                    f"{total_enacted} enacted learnings"
+                )
 
     return results
