@@ -15,6 +15,19 @@ from app.pehe_scraper import scrape_all_pehe
 from app.cardev_scraper import scrape_all_cardev
 from app.ela_scraper import scrape_all_ela, scrape_ela_legacy
 from app.arts_scraper import scrape_all_arts
+from app.sustour_scraper import scrape_all_sustour
+from app.cs_scraper import scrape_all_cs
+from app.ict_scraper import scrape_all_ict
+from app.teched_scraper import scrape_all_teched
+from app.arts912_scraper import scrape_all_arts912
+from app.eal_framework_scraper import scrape_all_eal_framework
+from app.eal_courses_scraper import scrape_all_eal_courses
+from app.intl_lang_scraper import scrape_all_intl_languages
+from app.indigenous_scraper import scrape_indigenous_gr12
+from app.lwict_scraper import scrape_lwict
+from app.french_scraper import scrape_all_french
+from app.ab_lang_scraper import scrape_all_ab_lang
+from app.german_bilingual_scraper import scrape_all_german_bilingual
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,6 +81,10 @@ HTML_PAGE = """<!DOCTYPE html>
         .btn-physed { background: #16a085; }
         .btn-arts { background: #c0392b; }
         .btn-cardev { background: #e67e22; }
+        .btn-sustour { background: #1abc9c; }
+        .btn-cs { background: #3498db; }
+        .btn-ict { background: #9b59b6; }
+        .btn-teched { background: #e74c3c; }
         .btn-all { background: #2c3e50; }
         #log {
             background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 6px;
@@ -102,7 +119,25 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-ela" onclick="startScrape('ela_legacy')" id="btn-ela-legacy" style="background:#a04000">Scrape ELA S1-S4 (Legacy)</button>
                 <button class="btn-cardev" onclick="startScrape('cardev')" id="btn-cardev">Scrape Career Development</button>
                 <button class="btn-physed" onclick="startScrape('physed')" id="btn-physed">Scrape Phys Ed / Health Ed</button>
-                <button class="btn-arts" onclick="startScrape('arts')" id="btn-arts">Scrape Arts Education (K-8, per grade)</button>
+                <button class="btn-arts" onclick="startScrape('arts')" id="btn-arts">Scrape Arts Education (K-8, hierarchical)</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn-sustour" onclick="startScrape('sustour')" id="btn-sustour">Scrape Sustainable Tourism (11-12)</button>
+                <button class="btn-cs" onclick="startScrape('cs')" id="btn-cs">Scrape Computer Science (10-12)</button>
+                <button class="btn-ict" onclick="startScrape('ict')" id="btn-ict">Scrape ICT Senior Years (15 courses)</button>
+                <button class="btn-teched" onclick="startScrape('teched')" id="btn-teched">Scrape Tech Ed ACE (9-12)</button>
+                <button class="btn-arts" onclick="startScrape('arts912')" id="btn-arts912" style="background:#922b21">Scrape Arts Education (9-12, hierarchical)</button>
+                <button class="btn-ict" onclick="startScrape('eal_framework')" id="btn-eal-framework" style="background:#2ecc71">Scrape EAL Framework (K-12)</button>
+                <button class="btn-ict" onclick="startScrape('eal_courses')" id="btn-eal-courses" style="background:#27ae60">Scrape EAL/LAL Courses (SY)</button>
+                <button class="btn-ict" onclick="startScrape('intl_lang')" id="btn-intl-lang" style="background:#e67e22">Scrape International Languages (ASL/Spanish/Hebrew/German/Ukrainian)</button>
+                <button class="btn-ict" onclick="startScrape('indigenous')" id="btn-indigenous" style="background:#8e44ad">Scrape Indigenous Education (Gr 12)</button>
+                <button class="btn-ict" onclick="startScrape('lwict')" id="btn-lwict" style="background:#3498db">Scrape Literacy with ICT (K-12)</button>
+                <button class="btn-ict" onclick="startScrape('french')" id="btn-french" style="background:#c0392b">Scrape French - English Program (K-12)</button>
+                <button class="btn-ict" onclick="startScrape('ab_lang')" id="btn-ab-lang" style="background:#d4a017">Scrape Aboriginal Languages (K-12)</button>
+                <button class="btn-ict" onclick="startScrape('german_bilingual')" id="btn-german-bilingual" style="background:#5d6d7e">Scrape German Bilingual (K-S4)</button>
+            </div>
+            <div class="btn-row" style="margin-top:10px">
+                <button class="btn-all" onclick="startScrape('all')" id="btn-all">Scrape All Subjects</button>
             </div>
         </div>
 
@@ -120,7 +155,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let pollInterval = null;
-        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts'];
+        const allBtns = ['btn-science', 'btn-social', 'btn-math', 'btn-ela', 'btn-ela-legacy', 'btn-physed', 'btn-cardev', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-german-bilingual', 'btn-all'];
         const btnOrigText = {};
 
         function disableAll() {
@@ -135,7 +170,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const btn = document.getElementById(id);
                 if (btn && btnOrigText[id]) btn.textContent = btnOrigText[id];
                 // Only enable buttons that are implemented
-                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts'].includes(id) && btn) btn.disabled = false;
+                if (['btn-science', 'btn-social', 'btn-math', 'btn-physed', 'btn-cardev', 'btn-ela', 'btn-ela-legacy', 'btn-arts', 'btn-sustour', 'btn-cs', 'btn-ict', 'btn-teched', 'btn-arts912', 'btn-eal-framework', 'btn-eal-courses', 'btn-intl-lang', 'btn-indigenous', 'btn-lwict', 'btn-french', 'btn-ab-lang', 'btn-german-bilingual', 'btn-all'].includes(id) && btn) btn.disabled = false;
             });
         }
 
@@ -245,6 +280,20 @@ async def start_scrape(subject: str):
         "ela": _run_ela_scrape,
         "ela_legacy": _run_ela_legacy_scrape,
         "arts": _run_arts_scrape,
+        "sustour": _run_sustour_scrape,
+        "cs": _run_cs_scrape,
+        "ict": _run_ict_scrape,
+        "teched": _run_teched_scrape,
+        "arts912": _run_arts912_scrape,
+        "eal_framework": _run_eal_framework_scrape,
+        "eal_courses": _run_eal_courses_scrape,
+        "intl_lang": _run_intl_lang_scrape,
+        "indigenous": _run_indigenous_scrape,
+        "lwict": _run_lwict_scrape,
+        "french": _run_french_scrape,
+        "ab_lang": _run_ab_lang_scrape,
+        "german_bilingual": _run_german_bilingual_scrape,
+        "all": _run_all_scrape,
     }
 
     func = scrape_funcs.get(subject)
@@ -260,9 +309,16 @@ async def start_scrape(subject: str):
     return {"status": "started", "subject": subject}
 
 
+def _subject_dir(name: str) -> Path:
+    """Create and return a per-subject output directory."""
+    d = OUTPUT_DIR / name
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def _run_science_scrape():
     try:
-        results = scrape_all_science(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_science(_subject_dir("Science"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -274,7 +330,7 @@ def _run_science_scrape():
 
 def _run_socstud_scrape():
     try:
-        results = scrape_all_socstud(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_socstud(_subject_dir("SocialStudies"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -286,7 +342,7 @@ def _run_socstud_scrape():
 
 def _run_math_scrape():
     try:
-        results = scrape_all_math(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_math(_subject_dir("Mathematics"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -298,7 +354,7 @@ def _run_math_scrape():
 
 def _run_pehe_scrape():
     try:
-        results = scrape_all_pehe(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_pehe(_subject_dir("PhysEdHealthEd"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -310,7 +366,7 @@ def _run_pehe_scrape():
 
 def _run_arts_scrape():
     try:
-        results = scrape_all_arts(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_arts(_subject_dir("ArtsEducation"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -322,7 +378,7 @@ def _run_arts_scrape():
 
 def _run_ela_scrape():
     try:
-        results = scrape_all_ela(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_ela(_subject_dir("ELA"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -334,7 +390,7 @@ def _run_ela_scrape():
 
 def _run_ela_legacy_scrape():
     try:
-        results = scrape_ela_legacy(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_ela_legacy(_subject_dir("ELA_Legacy"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -346,7 +402,7 @@ def _run_ela_legacy_scrape():
 
 def _run_cardev_scrape():
     try:
-        results = scrape_all_cardev(OUTPUT_DIR, progress_callback=log_progress)
+        results = scrape_all_cardev(_subject_dir("CareerDevelopment"), progress_callback=log_progress)
         scrape_state["results"] = results
         log_progress("\nScrape complete!")
     except Exception as e:
@@ -354,6 +410,268 @@ def _run_cardev_scrape():
         log_progress(f"\nFATAL ERROR: {e}")
     finally:
         scrape_state["is_running"] = False
+
+
+def _run_sustour_scrape():
+    try:
+        results = scrape_all_sustour(_subject_dir("SustainableTourism"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Sustainable Tourism scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_cs_scrape():
+    try:
+        results = scrape_all_cs(_subject_dir("ComputerScience"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Computer Science scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_ict_scrape():
+    try:
+        results = scrape_all_ict(_subject_dir("ICT"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("ICT scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_teched_scrape():
+    try:
+        results = scrape_all_teched(_subject_dir("TechEdACE"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Tech Ed scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_arts912_scrape():
+    try:
+        results = scrape_all_arts912(_subject_dir("ArtsEducation_9-12"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Arts 9-12 scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_eal_framework_scrape():
+    try:
+        results = scrape_all_eal_framework(_subject_dir("EAL_Framework"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("EAL Framework scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_eal_courses_scrape():
+    try:
+        results = scrape_all_eal_courses(_subject_dir("EAL_Courses"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("EAL Courses scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_intl_lang_scrape():
+    try:
+        results = scrape_all_intl_languages(_subject_dir("Intl_Languages"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("International Languages scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_indigenous_scrape():
+    try:
+        results = scrape_indigenous_gr12(_subject_dir("Indigenous_Education"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Indigenous Education scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_lwict_scrape():
+    try:
+        results = scrape_lwict(_subject_dir("LwICT"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("LwICT scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_french_scrape():
+    try:
+        results = scrape_all_french(_subject_dir("French"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("French scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_ab_lang_scrape():
+    try:
+        results = scrape_all_ab_lang(_subject_dir("AboriginalLanguages"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("Aboriginal Languages scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_german_bilingual_scrape():
+    try:
+        results = scrape_all_german_bilingual(_subject_dir("GermanBilingual"), progress_callback=log_progress)
+        scrape_state["results"] = results
+        log_progress("\nScrape complete!")
+    except Exception as e:
+        logger.exception("German Bilingual scrape failed")
+        log_progress(f"\nFATAL ERROR: {e}")
+    finally:
+        scrape_state["is_running"] = False
+
+
+def _run_all_scrape():
+    """Run all scrapers sequentially."""
+    all_scrapers = [
+        ("Science", _run_science_scrape_inner),
+        ("Social Studies", _run_socstud_scrape_inner),
+        ("Mathematics", _run_math_scrape_inner),
+        ("PhysEd/HealthEd", _run_pehe_scrape_inner),
+        ("Career Development", _run_cardev_scrape_inner),
+        ("ELA", _run_ela_scrape_inner),
+        ("ELA Legacy", _run_ela_legacy_scrape_inner),
+        ("Arts K-8", _run_arts_scrape_inner),
+        ("Arts 9-12", _run_arts912_scrape_inner),
+        ("Sustainable Tourism", _run_sustour_scrape_inner),
+        ("Computer Science", _run_cs_scrape_inner),
+        ("ICT Senior Years", _run_ict_scrape_inner),
+        ("Tech Ed ACE", _run_teched_scrape_inner),
+        ("EAL Framework", _run_eal_framework_scrape_inner),
+        ("EAL/LAL Courses", _run_eal_courses_scrape_inner),
+        ("International Languages", _run_intl_lang_scrape_inner),
+        ("Indigenous Education", _run_indigenous_scrape_inner),
+        ("Literacy with ICT", _run_lwict_scrape_inner),
+        ("French (English Program)", _run_french_scrape_inner),
+        ("Aboriginal Languages", _run_ab_lang_scrape_inner),
+        ("German Bilingual K-S4", _run_german_bilingual_scrape_inner),
+    ]
+    try:
+        for i, (name, func) in enumerate(all_scrapers, 1):
+            log_progress(f"\n{'='*50}")
+            log_progress(f"[{i}/{len(all_scrapers)}] Scraping {name}...")
+            log_progress(f"{'='*50}")
+            try:
+                func()
+            except Exception as e:
+                logger.exception(f"{name} scrape failed")
+                log_progress(f"ERROR in {name}: {e}")
+        log_progress(f"\n{'='*50}")
+        log_progress("ALL SCRAPES COMPLETE!")
+    finally:
+        scrape_state["is_running"] = False
+
+
+# Inner functions that don't manage is_running state (for use by _run_all_scrape)
+def _run_science_scrape_inner():
+    scrape_all_science(_subject_dir("Science"), progress_callback=log_progress)
+
+def _run_socstud_scrape_inner():
+    scrape_all_socstud(_subject_dir("SocialStudies"), progress_callback=log_progress)
+
+def _run_math_scrape_inner():
+    scrape_all_math(_subject_dir("Mathematics"), progress_callback=log_progress)
+
+def _run_pehe_scrape_inner():
+    scrape_all_pehe(_subject_dir("PhysEdHealthEd"), progress_callback=log_progress)
+
+def _run_cardev_scrape_inner():
+    scrape_all_cardev(_subject_dir("CareerDevelopment"), progress_callback=log_progress)
+
+def _run_ela_scrape_inner():
+    scrape_all_ela(_subject_dir("ELA"), progress_callback=log_progress)
+
+def _run_ela_legacy_scrape_inner():
+    scrape_ela_legacy(_subject_dir("ELA_Legacy"), progress_callback=log_progress)
+
+def _run_arts_scrape_inner():
+    scrape_all_arts(_subject_dir("ArtsEducation"), progress_callback=log_progress)
+
+def _run_arts912_scrape_inner():
+    scrape_all_arts912(_subject_dir("ArtsEducation_9-12"), progress_callback=log_progress)
+
+def _run_sustour_scrape_inner():
+    scrape_all_sustour(_subject_dir("SustainableTourism"), progress_callback=log_progress)
+
+def _run_cs_scrape_inner():
+    scrape_all_cs(_subject_dir("ComputerScience"), progress_callback=log_progress)
+
+def _run_ict_scrape_inner():
+    scrape_all_ict(_subject_dir("ICT"), progress_callback=log_progress)
+
+def _run_teched_scrape_inner():
+    scrape_all_teched(_subject_dir("TechEdACE"), progress_callback=log_progress)
+
+def _run_eal_framework_scrape_inner():
+    scrape_all_eal_framework(_subject_dir("EAL_Framework"), progress_callback=log_progress)
+
+def _run_eal_courses_scrape_inner():
+    scrape_all_eal_courses(_subject_dir("EAL_Courses"), progress_callback=log_progress)
+
+def _run_intl_lang_scrape_inner():
+    scrape_all_intl_languages(_subject_dir("Intl_Languages"), progress_callback=log_progress)
+
+def _run_indigenous_scrape_inner():
+    scrape_indigenous_gr12(_subject_dir("Indigenous_Education"), progress_callback=log_progress)
+
+def _run_lwict_scrape_inner():
+    scrape_lwict(_subject_dir("LwICT"), progress_callback=log_progress)
+
+def _run_french_scrape_inner():
+    scrape_all_french(_subject_dir("French"), progress_callback=log_progress)
+
+def _run_ab_lang_scrape_inner():
+    scrape_all_ab_lang(_subject_dir("AboriginalLanguages"), progress_callback=log_progress)
+
+def _run_german_bilingual_scrape_inner():
+    scrape_all_german_bilingual(_subject_dir("GermanBilingual"), progress_callback=log_progress)
 
 
 @app.get("/api/status")
@@ -369,26 +687,54 @@ async def get_status():
 @app.get("/api/results")
 async def get_results():
     files = []
-    for filepath in sorted(OUTPUT_DIR.glob("*.json")):
+    for filepath in sorted(OUTPUT_DIR.rglob("*.json")):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             grade = data.get("grade", "")
             clusters = data.get("clusters", [])
-            total_slos = sum(
-                len(c.get("specific_learning_outcomes", []))
-                for c in clusters
-            )
+            learning_areas = data.get("learning_areas", [])
+            units = data.get("units", [])
+
+            if units:
+                n_groups = len(units)
+                total_slos = sum(
+                    len(g.get("slos", []))
+                    for u in units
+                    for g in u.get("glos", [])
+                )
+            elif learning_areas:
+                n_groups = len(learning_areas)
+                total_slos = sum(
+                    len(el)
+                    for la in learning_areas
+                    for rl in la.get("recursive_learnings", [])
+                    for el in [rl.get("enacted_learnings", [])]
+                )
+                if total_slos == 0:
+                    total_slos = sum(
+                        len(la.get("recursive_learnings", []))
+                        for la in learning_areas
+                    )
+            else:
+                n_groups = len(clusters)
+                total_slos = sum(
+                    len(c.get("specific_learning_outcomes", []))
+                    for c in clusters
+                )
+
+            rel_path = filepath.relative_to(OUTPUT_DIR)
             files.append({
-                "filename": filepath.name,
+                "filename": str(rel_path),
                 "grade": grade,
-                "clusters": len(clusters),
+                "clusters": n_groups,
                 "slos": total_slos,
             })
         except Exception:
+            rel_path = filepath.relative_to(OUTPUT_DIR)
             files.append({
-                "filename": filepath.name,
+                "filename": str(rel_path),
                 "grade": "?",
                 "clusters": 0,
                 "slos": 0,
