@@ -126,7 +126,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <button class="btn-cs" onclick="startScrape('cs')" id="btn-cs">Scrape Computer Science (10-12)</button>
                 <button class="btn-ict" onclick="startScrape('ict')" id="btn-ict">Scrape ICT Senior Years (15 courses)</button>
                 <button class="btn-teched" onclick="startScrape('teched')" id="btn-teched">Scrape Tech Ed ACE (9-12)</button>
-                <button class="btn-arts" onclick="startScrape('arts912')" id="btn-arts912" style="background:#922b21">Scrape Arts Education (9-12)</button>
+                <button class="btn-arts" onclick="startScrape('arts912')" id="btn-arts912" style="background:#922b21">Scrape Arts Education (9-12, hierarchical)</button>
                 <button class="btn-ict" onclick="startScrape('eal_framework')" id="btn-eal-framework" style="background:#2ecc71">Scrape EAL Framework (K-12)</button>
                 <button class="btn-ict" onclick="startScrape('eal_courses')" id="btn-eal-courses" style="background:#27ae60">Scrape EAL/LAL Courses (SY)</button>
                 <button class="btn-ict" onclick="startScrape('intl_lang')" id="btn-intl-lang" style="background:#e67e22">Scrape International Languages (ASL/Spanish/Hebrew/German/Ukrainian)</button>
